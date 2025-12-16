@@ -35,7 +35,6 @@ if (session_status() === PHP_SESSION_NONE) {
             color: #fff;
         }
         .content {
-            margin-left: 240px;
             padding: 20px;
         }
     </style>

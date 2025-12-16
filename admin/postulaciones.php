@@ -1,5 +1,5 @@
 <?php
-$page_title = "Gestionar Vacantes";
+$page_title = "Gestionar Postulaciones";
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
@@ -11,53 +11,73 @@ if ($_SESSION['rol'] !== 'admin') {
 
 $conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
 
-$sql = "SELECT id, titulo, descripcion, requisitos, departamento, fecha_publicacion, estado FROM vacantes ORDER BY fecha_publicacion DESC";
+// Consulta para traer todas las postulaciones con info de usuario y vacante
+$sql = "
+    SELECT p.id, u.nombre AS usuario, v.titulo AS vacante, p.fecha_postulacion, p.estado, p.archivo
+    FROM postulaciones p
+    INNER JOIN usuarios u ON p.usuario_id = u.id
+    INNER JOIN vacantes v ON p.vacante_id = v.id
+    ORDER BY p.fecha_postulacion DESC
+";
+
 $result = $conn->query($sql);
 ?>
 
 <div class="content">
     <div class="container">
-        <h2 class="my-4">Vacantes</h2>
+        <h2 class="my-4">Postulaciones</h2>
 
-        <a href="vacantes_crear.php" class="btn btn-primary mb-3">Crear Nueva Vacante</a>
-
-        <table class="table table-bordered table-striped align-middle">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Título</th>
-                    <th>Descripción</th>
-                    <th>Requisitos</th>
-                    <th>Departamento</th>
-                    <th>Fecha de Publicación</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                <?php while ($row = $result->fetch_assoc()): ?>
+        <?php if ($result->num_rows > 0): ?>
+            <table class="table table-bordered table-striped align-middle">
+                <thead>
                     <tr>
-                        <td><?= $row['id'] ?></td>
-                        <td><?= htmlspecialchars($row['titulo']) ?></td>
-                        <td><?= htmlspecialchars(substr($row['descripcion'], 0, 70)) ?>...</td>
-                        <td><?= htmlspecialchars(substr($row['requisitos'], 0, 70)) ?>...</td>
-                        <td><?= htmlspecialchars($row['departamento']) ?></td>
-                        <td><?= $row['fecha_publicacion'] ?></td>
-                        <td>
-                            <span class="badge bg-<?= $row['estado'] === 'abierta' ? 'success' : 'secondary' ?>">
-                                <?= ucfirst($row['estado']) ?>
-                            </span>
-                        </td>
-                        <td>
-                            <a href="vacantes_editar.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-primary">Editar</a>
-                            <a href="vacantes_eliminar.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('¿Seguro que deseas eliminar esta vacante?');">Eliminar</a>
-                        </td>
+                        <th>ID</th>
+                        <th>Usuario</th>
+                        <th>Vacante</th>
+                        <th>Fecha de Postulación</th>
+                        <th>Estado</th>
+                        <th>Archivo CV</th>
+                        <th>Acciones</th>
                     </tr>
-                <?php endwhile; ?>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <?php while ($row = $result->fetch_assoc()): ?>
+                        <tr>
+                            <td><?= $row['id'] ?></td>
+                            <td><?= htmlspecialchars($row['usuario']) ?></td>
+                            <td><?= htmlspecialchars($row['vacante']) ?></td>
+                            <td><?= $row['fecha_postulacion'] ?></td>
+                            <td>
+                                <span class="badge bg-<?= $row['estado'] === 'pendiente' ? 'warning' : ($row['estado'] === 'aprobada' ? 'success' : 'secondary') ?>">
+                                    <?= ucfirst($row['estado']) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php if ($row['archivo']): ?>
+                                    <a href="../<?= $row['archivo'] ?>" target="_blank" class="btn btn-sm btn-primary">Ver CV</a>
+                                <?php else: ?>
+                                    Sin archivo
+                                <?php endif; ?>
+                            </td>
+
+                            <td>
+                                <!-- Opciones: cambiar estado -->
+                                <a href="postulaciones_aprobar.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-success">Aprobar</a>
+                                <a href="postulaciones_rechazar.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-danger">Rechazar</a>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+        <?php else: ?>
+            <div class="alert alert-info text-center">
+                No hay postulaciones registradas.
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
-<?php include '../includes/footer.php'; ?>
+<?php
+$conn->close();
+include '../includes/footer.php';
+?>

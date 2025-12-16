@@ -1,77 +1,104 @@
 <?php
+// Mostrar errores (solo en desarrollo)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 
-// Verificar si el usuario ha iniciado sesión
+// Validar sesión
 if (!isset($_SESSION['id'])) {
-    header("Location: login.php?error=Debe iniciar sesión primero");
+    header("Location: login.php?error=" . urlencode("Debe iniciar sesión primero"));
     exit;
 }
 
-$vacante_id = $_POST['vacante_id'];
-$hoja_vida = $_FILES['hoja_vida'];
+// Validar vacante
+if (!isset($_POST['vacante_id'])) {
+    header("Location: postular.php?error=" . urlencode("Vacante no recibida"));
+    exit;
+}
 
-$error = '';
+$vacante_id = intval($_POST['vacante_id']);
+$usuario_id = intval($_SESSION['id']);
 
-// Validar archivo
-if ($hoja_vida['error'] == 0) {
-    // Obtener información del archivo
-    $file_name = $hoja_vida['name'];
-    $file_tmp = $hoja_vida['tmp_name'];
-    $file_size = $hoja_vida['size'];
-    $file_type = pathinfo($file_name, PATHINFO_EXTENSION);
+if (!isset($_FILES['hoja_vida'])) {
+    header("Location: postular.php?error=" . urlencode("Debe subir un archivo"));
+    exit;
+}
 
-    // Validar extensión y tamaño
-    $allowed_extensions = ['pdf', 'doc', 'docx'];
-    $max_size = 5 * 1024 * 1024; // 5MB máximo
+$archivo = $_FILES['hoja_vida'];
+$error = "";
 
-    if (!in_array($file_type, $allowed_extensions)) {
-        $error = "Solo se permiten archivos PDF, DOC o DOCX.";
-    } elseif ($file_size > $max_size) {
-        $error = "El archivo es demasiado grande. El tamaño máximo permitido es 5MB.";
+// Validación de archivo
+if ($archivo['error'] !== 0) {
+    $error = "Error al subir el archivo. Código: " . $archivo['error'];
+}
+
+if ($error === "") {
+
+    // Limpiar nombre archivo
+    $file_name = preg_replace('/[^a-zA-Z0-9.\-_]/', '_', $archivo['name']);
+    $file_tmp  = $archivo['tmp_name'];
+    $file_size = $archivo['size'];
+    $extension = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+
+    $ext_permitidas = ['pdf', 'doc', 'docx'];
+    $tam_max = 5 * 1024 * 1024; // 5 MB
+
+    if (!in_array($extension, $ext_permitidas)) {
+        $error = "Formato no permitido. Solo PDF, DOC o DOCX.";
     }
 
-    // Si no hubo errores, mover el archivo a la carpeta 'uploads'
-    if ($error === '') {
-        $upload_dir = 'uploads/';
-        $file_path = $upload_dir . uniqid() . '-' . $file_name;
+    if ($file_size > $tam_max) {
+        $error = "El archivo supera los 5MB permitidos.";
+    }
 
-        if (move_uploaded_file($file_tmp, $file_path)) {
-            // Conexión a la base de datos
-            $servername = "localhost";
-            $username = "root";
-            $password = "root";
-            $dbname = "sistema_vacantes";
+    if ($error === "") {
 
-            // Crear la conexión
-            $conn = new mysqli($servername, $username, $password, $dbname);
+        // Crear carpeta si no existe
+        $upload_dir = "uploads/";
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
+
+        // Ruta final donde se guardará el archivo
+        $ruta_final = $upload_dir . uniqid("cv_") . "_" . $file_name;
+
+        if (!move_uploaded_file($file_tmp, $ruta_final)) {
+            $error = "No se pudo guardar el archivo. Verifique permisos.";
+        }
+
+        if ($error === "") {
+
+            // Conexión a la BD
+            $conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
+
             if ($conn->connect_error) {
-                die("Conexión fallida: " . $conn->connect_error);
+                die("Error al conectar a la BD: " . $conn->connect_error);
             }
 
-            // Insertar la postulación en la base de datos
-            $stmt = $conn->prepare("INSERT INTO postulaciones (vacante_id, usuario_id, archivo) VALUES (?, ?, ?)");
-            $stmt->bind_param("iis", $vacante_id, $_SESSION['id'], $file_path);
+            // Insertar en la DB
+            $stmt = $conn->prepare("
+                INSERT INTO postulaciones (usuario_id, vacante_id, fecha_postulacion, estado, archivo)
+                VALUES (?, ?, NOW(), 'pendiente', ?)
+            ");
+
+            $stmt->bind_param("iis", $usuario_id, $vacante_id, $ruta_final);
 
             if ($stmt->execute()) {
-                // Redirigir al usuario con un mensaje de éxito
-                header("Location: postular.php?success=Postulación exitosa");
+                header("Location: postular.php?success=" . urlencode("Postulación enviada correctamente."));
+                exit;
             } else {
-                $error = "Error al registrar la postulación.";
+                $error = "Error al guardar en la base de datos: " . $stmt->error;
             }
 
             $stmt->close();
             $conn->close();
-        } else {
-            $error = "Error al subir el archivo.";
         }
     }
-} else {
-    $error = "No se ha seleccionado ningún archivo.";
 }
 
-// Si hubo error, redirigir de nuevo con el mensaje de error
-if ($error) {
-    header("Location: postular.php?error=" . urlencode($error));
-    exit;
-}
+// Si hubo error:
+header("Location: postular.php?error=" . urlencode($error));
+exit;
 ?>
