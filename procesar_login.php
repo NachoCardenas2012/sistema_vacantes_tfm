@@ -1,41 +1,50 @@
 <?php
 session_start();
-include "conexion.php";
 
+$conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
+if ($conn->connect_error) {
+    die("Error de conexión: " . $conn->connect_error);
+}
 
+$email = trim($_POST['email'] ?? '');
+$password = $_POST['password'] ?? '';
 
-$email = trim($_POST['email']);
-$password = $_POST['password'];
-
-// Validar formato de email
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    header("Location: login.php?error=Formato de email inválido");
+if ($email === '' || $password === '') {
+    $_SESSION['login_error'] = "Todos los campos son obligatorios.";
+    header("Location: login.php");
     exit;
 }
 
-// Preparar consulta segura
-$stmt = $conexion->prepare("SELECT id, nombre, rol, password FROM usuarios WHERE email = ? LIMIT 1");
+$stmt = $conn->prepare("SELECT id, password, rol FROM usuarios WHERE email = ?");
+if (!$stmt) {
+    die("Error SQL: " . $conn->error);
+}
+
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $result = $stmt->get_result();
 
-// Validar que exista el usuario
-if ($result->num_rows === 1) {
-    $row = $result->fetch_assoc();
+if ($usuario = $result->fetch_assoc()) {
 
-    // Verificar contraseña
-    if (password_verify($password, $row['password'])) {
+    if (password_verify($password, $usuario['password'])) {
 
-        // Guardar datos en sesión
-        $_SESSION['id'] = $row['id'];
-        $_SESSION['nombre'] = $row['nombre'];
-        $_SESSION['rol'] = $row['rol'];
-        
+        // Login correcto
+        $_SESSION['id']  = $usuario['id'];
+        $_SESSION['rol'] = $usuario['rol'];
+
         header("Location: home.php");
         exit;
+
+    } else {
+        $_SESSION['login_error'] = "Correo o contraseña incorrectos.";
     }
+
+} else {
+    $_SESSION['login_error'] = "Correo o contraseña incorrectos.";
 }
 
-// Si llega aquí, usuario o contraseña incorrectos
-header("Location: login.php?error=Credenciales incorrectas");
+$stmt->close();
+$conn->close();
+
+header("Location: login.php");
 exit;

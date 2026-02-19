@@ -1,23 +1,40 @@
-<?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-?>
+<?php if (isset($_SESSION['id'])): ?>
 
-<div class="sidebar">
-    <!-- Menú usuario -->
-    <a href="/sistema_vacantes/home.php">🏠 Inicio</a>
-    <a href="/sistema_vacantes/postular.php">📝 Postular</a>
+<aside class="sidebar">
+
+    <h5 class="sidebar-title">Sistema Vacantes</h5>
+
+    <a href="/sistema_vacantes/home.php" class="sidebar-link">🏠 Inicio</a>
+    <a href="/sistema_vacantes/postular.php" class="sidebar-link">📝 Postular</a>
 
     <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin'): ?>
-        <!-- Menú administrador -->
-        <a href="/sistema_vacantes/admin/index.php" <?= ($page_title == 'Dashboard' ? 'style="font-weight:bold;"' : '') ?>>📊 Dashboard</a>
-        <a href="/sistema_vacantes/admin/usuarios.php" <?= ($page_title == 'Usuarios' ? 'style="font-weight:bold;"' : '') ?>>👥 Usuarios</a>
-        <a href="/sistema_vacantes/admin/vacantes.php" <?= ($page_title == 'Vacantes' ? 'style="font-weight:bold;"' : '') ?>>💼 Vacantes</a>
-        <a href="/sistema_vacantes/admin/postulaciones.php" <?= ($page_title == 'Postulaciones' ? 'style="font-weight:bold;"' : '') ?>>📝 Postulaciones</a>
+
+        <a href="/sistema_vacantes/admin/index.php"
+           class="sidebar-link <?= ($page_title === 'Dashboard Administrativo' ? 'active' : '') ?>">
+           📊 Dashboard
+        </a>
+
+        <a href="/sistema_vacantes/admin/usuarios.php"
+           class="sidebar-link <?= ($page_title === 'Gestionar Usuarios' ? 'active' : '') ?>">
+           👥 Usuarios
+        </a>
+
+        <a href="/sistema_vacantes/admin/vacantes.php"
+           class="sidebar-link <?= ($page_title === 'Gestionar Vacantes' ? 'active' : '') ?>">
+           💼 Vacantes
+        </a>
+
+        <a href="/sistema_vacantes/admin/postulaciones.php"
+           class="sidebar-link <?= ($page_title === 'Gestionar Postulaciones' ? 'active' : '') ?>">
+           📝 Postulaciones
+        </a>
+
     <?php endif; ?>
 
-    <a href="/sistema_vacantes/cerrar_sesion.php">🚪 Cerrar Sesión</a>
-</div>
+    <a href="/sistema_vacantes/logout.php" class="sidebar-link text-danger">
+        🚪 Cerrar Sesión
+    </a>
 
-<div class="content">
+</aside>
+
+<?php endif; ?>
