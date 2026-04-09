@@ -21,125 +21,90 @@ if ($conn->connect_error) {
     die("Conexión fallida: " . $conn->connect_error);
 }
 
-// Búsqueda
-$keyword = isset($_GET['keyword']) ? $conn->real_escape_string($_GET['keyword']) : '';
+// ✅ Si viene ?id= mostrar detalle de UNA vacante
+if (isset($_GET['id'])) {
 
-// Consulta vacantes
-$sql = "SELECT * FROM vacantes 
-        WHERE estado = 'abierta'
-        AND titulo LIKE '%$keyword%'
-        ORDER BY fecha_publicacion DESC";
+    $id = intval($_GET['id']);
+    $stmt = $conn->prepare("SELECT * FROM vacantes WHERE id = ? AND estado = 'abierta'");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $vacante = $result->fetch_assoc();
 
-$result = $conn->query($sql);
+    if (!$vacante) {
+        header("Location: postular.php?error=" . urlencode("Vacante no encontrada o no disponible"));
+        exit;
+    }
 ?>
 
-<style>
-/* ===== Buscador ===== */
-.buscador-principal {
-    background: #fff;
-    padding: 20px 25px;
-    border-radius: 15px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-    margin-bottom: 35px;
-}
+<div class="content">
+    <div class="container">
 
-.buscador-principal form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-}
+        <!-- Botón volver -->
+        <a href="postular.php" class="btn btn-secondary mb-4">
+            ← Volver a vacantes
+        </a>
 
-.buscador-principal input {
-    width: 70%;
-    padding: 15px 20px;
-    border-radius: 12px;
-    border: 1px solid #ccc;
-    font-size: 1rem;
-}
+        <!-- Mensajes -->
+        <?php if (!empty($_GET['error'])): ?>
+            <div class="alert alert-danger"><?= htmlspecialchars($_GET['error']) ?></div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['success'])): ?>
+            <div class="alert alert-success"><?= htmlspecialchars($_GET['success']) ?></div>
+        <?php endif; ?>
 
-.buscador-principal input:focus {
-    border-color: #667eea;
-    outline: none;
-}
+        <!-- Detalle de la vacante -->
+        <div class="vacante-card">
+            <div class="vacante-titulo">
+                <?= htmlspecialchars($vacante['titulo']) ?>
+            </div>
+            <div class="vacante-fecha">
+                📅 <?= date('d/m/Y', strtotime($vacante['fecha_publicacion'])) ?>
+            </div>
+            <div class="vacante-descripcion">
+                <?= htmlspecialchars($vacante['descripcion']) ?>
+            </div>
 
-.buscador-principal button {
-    background: #667eea;
-    color: #fff;
-    border: none;
-    padding: 15px 30px;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-}
+            <hr>
 
-.buscador-principal button:hover {
-    background: #564ab1;
-}
+            <!-- Formulario postulación -->
+            <h5 class="mb-3">📎 Sube tu Hoja de Vida</h5>
+            <form action="procesar_postulacion.php" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="vacante_id" value="<?= $vacante['id'] ?>">
+                <div class="mb-3">
+                    <label class="form-label">Archivo CV <span class="text-danger">*</span></label>
+                    <input type="file" 
+                           name="hoja_vida" 
+                           class="form-control" 
+                           accept=".pdf,.doc,.docx" 
+                           required>
+                    <small class="text-muted">Formatos permitidos: PDF, DOC, DOCX. Máximo 5MB</small>
+                </div>
+                <button type="submit" class="vacante-btn w-100">
+                    🚀 Postularme a esta vacante
+                </button>
+            </form>
+        </div>
 
-/* ===== Cards ===== */
-.vacantes-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 25px;
-}
+    </div>
+</div>
 
-.vacante-card {
-    background: #fff;
-    border-radius: 16px;
-    padding: 28px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    transition: 0.3s;
-}
+<?php
 
-.vacante-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 14px 35px rgba(0,0,0,0.15);
-}
+// ✅ Si NO viene ?id= mostrar TODAS las vacantes
+} else {
 
-.vacante-titulo {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-}
+    // Búsqueda
+    $keyword = isset($_GET['keyword']) ? $conn->real_escape_string($_GET['keyword']) : '';
 
-.vacante-fecha {
-    font-size: 0.9rem;
-    color: #555;
-    margin-bottom: 15px;
-}
+    // Consulta vacantes
+    $sql = "SELECT * FROM vacantes 
+            WHERE estado = 'abierta'
+            AND titulo LIKE '%$keyword%'
+            ORDER BY fecha_publicacion DESC";
 
-.vacante-descripcion {
-    font-size: 0.95rem;
-    color: #666;
-    white-space: pre-line;
-    margin-bottom: 20px;
-}
-
-.vacante-btn {
-    background: #28a745;
-    color: #fff;
-    border: none;
-    padding: 14px;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.vacante-btn:hover {
-    background: #218838;
-}
-
-/* ===== Responsive ===== */
-@media (max-width: 768px) {
-    .buscador-principal input {
-        width: 100%;
-    }
-}
-</style>
+    $result = $conn->query($sql);
+?>
 
 <div class="content">
     <div class="container">
@@ -149,7 +114,10 @@ $result = $conn->query($sql);
         <!-- Buscador -->
         <div class="buscador-principal">
             <form action="postular.php" method="GET">
-                <input type="text" name="keyword" placeholder="Buscar vacantes..." value="<?= htmlspecialchars($keyword) ?>">
+                <input type="text" 
+                       name="keyword" 
+                       placeholder="Buscar vacantes..." 
+                       value="<?= htmlspecialchars($keyword) ?>">
                 <button type="submit">Buscar</button>
             </form>
         </div>
@@ -162,13 +130,15 @@ $result = $conn->query($sql);
             <div class="alert alert-success"><?= htmlspecialchars($_GET['success']) ?></div>
         <?php endif; ?>
 
-        <!-- Vacantes -->
+        <!-- Grid de vacantes -->
         <?php if ($result && $result->num_rows > 0): ?>
             <div class="vacantes-grid">
                 <?php while ($vacante = $result->fetch_assoc()): ?>
                     <div class="vacante-card">
                         <div>
-                            <div class="vacante-titulo"><?= htmlspecialchars($vacante['titulo']) ?></div>
+                            <div class="vacante-titulo">
+                                <?= htmlspecialchars($vacante['titulo']) ?>
+                            </div>
                             <div class="vacante-fecha">
                                 📅 <?= date('d/m/Y', strtotime($vacante['fecha_publicacion'])) ?>
                             </div>
@@ -177,25 +147,28 @@ $result = $conn->query($sql);
                             </div>
                         </div>
 
-                        <form action="procesar_postulacion.php" method="POST" enctype="multipart/form-data">
-                            <input type="hidden" name="vacante_id" value="<?= $vacante['id'] ?>">
-                            <div class="mb-3">
-                                <input type="file" name="hoja_vida" class="form-control" accept=".pdf,.doc,.docx" required>
-                            </div>
-                            <button type="submit" class="vacante-btn w-100">Postularme</button>
-                        </form>
+                        <!-- ✅ Botón que lleva al detalle de la vacante -->
+                        <a href="postular.php?id=<?= $vacante['id'] ?>" 
+                           class="vacante-btn w-100 text-center text-decoration-none d-block">
+                            Ver y Postularme →
+                        </a>
                     </div>
                 <?php endwhile; ?>
             </div>
+
         <?php else: ?>
             <div class="alert alert-warning text-center">
-                <p>No se encontraron vacantes que coincidan con tu búsqueda.</p>
-                <a href="postular.php" class="btn btn-primary mt-3">Ver todas las vacantes</a>
+                <p>No se encontraron vacantes disponibles.</p>
+                <a href="postular.php" class="btn btn-primary mt-3">
+                    Ver todas las vacantes
+                </a>
             </div>
         <?php endif; ?>
 
     </div>
 </div>
+
+<?php } ?>
 
 <?php
 $conn->close();

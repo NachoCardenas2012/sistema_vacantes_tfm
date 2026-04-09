@@ -33,7 +33,7 @@ echo "<h2>🔐 Actualizar Contraseña del Usuario</h2>";
  
 // CONFIGURACIÓN - CAMBIA ESTOS VALORES
 
-$email_usuario = "admin@xyz.com";  // Email del usuario a actualizar
+$email_usuario = "cami_pin11@hotmail.com";  // Email del usuario a actualizar
 
 $nueva_password = "123456";         // La nueva contraseña que quieres usar
  
