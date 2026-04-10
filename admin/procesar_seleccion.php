@@ -2,25 +2,20 @@
 session_start();
 ob_start();
 
-ini_set('display_errors', 0);
-error_reporting(E_ALL);
-
-// ✅ MOSTRAR ERRORES TEMPORALMENTE
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
 header('Content-Type: application/json; charset=utf-8');
 
+// Verificar sesión y rol admin
 if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'admin') {
     ob_end_clean();
     echo json_encode(['success' => false, 'message' => 'Acceso denegado']);
     exit;
 }
 
+// Conexión a base de datos
 $conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
 if ($conn->connect_error) {
     ob_end_clean();
-    echo json_encode(['success' => false, 'message' => 'Error BD: ' . $conn->connect_error]);
+    echo json_encode(['success' => false, 'message' => 'Error de conexión']);
     exit;
 }
 $conn->set_charset("utf8");
@@ -29,28 +24,29 @@ $action = $_GET['action'] ?? '';
 
 ob_end_clean();
 
+// Enrutar acción recibida
 switch ($action) {
-    case 'iniciar_proceso':   iniciarProceso($conn);   break;
-    case 'evaluar':           evaluarPostulante($conn); break;
-    case 'marcar_ganador':    marcarGanador($conn);     break;
-    case 'quitar_ganador':    quitarGanador($conn);     break;
-    case 'finalizar_proceso': finalizarProceso($conn);  break;
+    case 'iniciar_proceso':   iniciarProceso($conn);    break;
+    case 'evaluar':           evaluarPostulante($conn);  break;
+    case 'marcar_ganador':    marcarGanador($conn);      break;
+    case 'quitar_ganador':    quitarGanador($conn);      break;
+    case 'finalizar_proceso': finalizarProceso($conn);   break;
     default:
         echo json_encode([
             'success' => false,
-            'message' => 'Acción no válida: ' . htmlspecialchars($action)
+            'message' => 'Acción no válida'
         ]);
 }
 
 $conn->close();
 
 /* ============================================================
-   INICIAR PROCESO
+   INICIAR PROCESO DE SELECCIÓN
    ============================================================ */
 function iniciarProceso($conn) {
-    $vacante_id          = intval($_POST['vacante_id']          ?? 0);
-    $numero_ganadores    = intval($_POST['numero_ganadores']    ?? 1);
-    $criterios_seleccion = trim($_POST['criterios_seleccion']   ?? '');
+    $vacante_id          = intval($_POST['vacante_id']       ?? 0);
+    $numero_ganadores    = intval($_POST['numero_ganadores'] ?? 1);
+    $criterios_seleccion = trim($_POST['criterios_seleccion'] ?? '');
     $admin_id            = $_SESSION['id'];
 
     if ($vacante_id <= 0) {
@@ -58,7 +54,7 @@ function iniciarProceso($conn) {
         return;
     }
 
-    // Verificar si ya existe proceso
+    // Verificar si ya existe proceso para esta vacante
     $stmt = $conn->prepare("SELECT id FROM proceso_seleccion WHERE vacante_id = ?");
     $stmt->bind_param("i", $vacante_id);
     $stmt->execute();
@@ -71,7 +67,7 @@ function iniciarProceso($conn) {
     }
     $stmt->close();
 
-    // Insertar proceso
+    // Insertar nuevo proceso
     $stmt = $conn->prepare("
         INSERT INTO proceso_seleccion 
             (vacante_id, numero_ganadores, criterios_seleccion, admin_id, estado, fecha_inicio) 
@@ -85,13 +81,13 @@ function iniciarProceso($conn) {
             'message' => 'Proceso iniciado correctamente. Ahora evalúa a los candidatos.'
         ]);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error SQL: ' . $stmt->error]);
+        echo json_encode(['success' => false, 'message' => 'Error al iniciar proceso']);
     }
     $stmt->close();
 }
 
 /* ============================================================
-   EVALUAR POSTULANTE
+   EVALUAR POSTULANTE — Guarda puntaje y fecha de evaluación
    ============================================================ */
 function evaluarPostulante($conn) {
     $postulacion_id = intval($_POST['postulacion_id'] ?? 0);
@@ -99,16 +95,15 @@ function evaluarPostulante($conn) {
     $comentario     = trim($_POST['comentario']        ?? '');
 
     if ($postulacion_id <= 0) {
-        echo json_encode(['success' => false, 'message' => 'ID inválido']);
+        echo json_encode(['success' => false, 'message' => 'ID de postulación inválido']);
         return;
     }
 
     if ($puntaje < 0 || $puntaje > 10) {
-        echo json_encode(['success' => false, 'message' => 'Puntaje debe ser 0-10']);
+        echo json_encode(['success' => false, 'message' => 'El puntaje debe estar entre 0 y 10']);
         return;
     }
 
-    // ✅ fecha_evaluacion = NOW() DEBE ESTAR AQUÍ
     $stmt = $conn->prepare("
         UPDATE postulaciones 
         SET puntaje              = ?, 
@@ -121,21 +116,12 @@ function evaluarPostulante($conn) {
 
     if ($stmt->execute()) {
         if ($stmt->affected_rows > 0) {
-            echo json_encode([
-                'success' => true,
-                'message' => 'Evaluación guardada correctamente'
-            ]);
+            echo json_encode(['success' => true, 'message' => 'Evaluación guardada correctamente']);
         } else {
-            echo json_encode([
-                'success' => false,
-                'message' => 'No se encontró la postulación ID: ' . $postulacion_id
-            ]);
+            echo json_encode(['success' => false, 'message' => 'No se encontró la postulación']);
         }
     } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Error SQL: ' . $stmt->error
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Error al guardar evaluación']);
     }
     $stmt->close();
 }
@@ -144,28 +130,21 @@ function evaluarPostulante($conn) {
    MARCAR GANADOR MANUAL
    ============================================================ */
 function marcarGanador($conn) {
-    $rawInput = file_get_contents('php://input');
-    $input    = json_decode($rawInput, true);
+    $input = json_decode(file_get_contents('php://input'), true);
 
     if (!$input || !isset($input['postulacion_id'])) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Datos inválidos: ' . $rawInput
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Datos inválidos']);
         return;
     }
 
     $postulacion_id = intval($input['postulacion_id']);
 
     if ($postulacion_id <= 0) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'ID de postulación inválido: ' . $postulacion_id
-        ]);
+        echo json_encode(['success' => false, 'message' => 'ID de postulación inválido']);
         return;
     }
 
-    // Verificar que existe
+    // Verificar que la postulación existe
     $stmt = $conn->prepare("SELECT id FROM postulaciones WHERE id = ?");
     $stmt->bind_param("i", $postulacion_id);
     $stmt->execute();
@@ -173,10 +152,7 @@ function marcarGanador($conn) {
 
     if ($stmt->num_rows === 0) {
         $stmt->close();
-        echo json_encode([
-            'success' => false,
-            'message' => 'Postulación no encontrada ID: ' . $postulacion_id
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Postulación no encontrada']);
         return;
     }
     $stmt->close();
@@ -192,12 +168,9 @@ function marcarGanador($conn) {
     $stmt->bind_param("i", $postulacion_id);
 
     if ($stmt->execute()) {
-        echo json_encode([
-            'success' => true,
-            'message' => '¡Ganador marcado exitosamente!'
-        ]);
+        echo json_encode(['success' => true, 'message' => '¡Ganador marcado exitosamente!']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error SQL: ' . $stmt->error]);
+        echo json_encode(['success' => false, 'message' => 'Error al marcar ganador']);
     }
     $stmt->close();
 }
@@ -206,8 +179,7 @@ function marcarGanador($conn) {
    QUITAR GANADOR
    ============================================================ */
 function quitarGanador($conn) {
-    $rawInput = file_get_contents('php://input');
-    $input    = json_decode($rawInput, true);
+    $input = json_decode(file_get_contents('php://input'), true);
 
     if (!$input || !isset($input['postulacion_id'])) {
         echo json_encode(['success' => false, 'message' => 'Datos inválidos']);
@@ -226,39 +198,32 @@ function quitarGanador($conn) {
     $stmt->bind_param("i", $postulacion_id);
 
     if ($stmt->execute()) {
-        echo json_encode([
-            'success' => true,
-            'message' => 'Estatus de ganador removido correctamente'
-        ]);
+        echo json_encode(['success' => true, 'message' => 'Ganador removido correctamente']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error SQL: ' . $stmt->error]);
+        echo json_encode(['success' => false, 'message' => 'Error al quitar ganador']);
     }
     $stmt->close();
 }
 
 /* ============================================================
-   FINALIZAR PROCESO — AUTO SELECCIONA GANADOR POR MAYOR PUNTAJE
+   FINALIZAR PROCESO — Auto selecciona ganador por mayor puntaje
    ============================================================ */
 function finalizarProceso($conn) {
-    $rawInput = file_get_contents('php://input');
-    $input    = json_decode($rawInput, true);
+    $input = json_decode(file_get_contents('php://input'), true);
 
     if (!$input || !isset($input['proceso_id'])) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Datos inválidos: ' . $rawInput
-        ]);
+        echo json_encode(['success' => false, 'message' => 'Datos inválidos']);
         return;
     }
 
     $proceso_id = intval($input['proceso_id']);
 
     if ($proceso_id <= 0) {
-        echo json_encode(['success' => false, 'message' => 'ID proceso inválido: ' . $proceso_id]);
+        echo json_encode(['success' => false, 'message' => 'ID de proceso inválido']);
         return;
     }
 
-    // 1. Obtener datos del proceso
+    // Obtener datos del proceso
     $stmt = $conn->prepare("
         SELECT vacante_id, numero_ganadores 
         FROM proceso_seleccion 
@@ -270,14 +235,14 @@ function finalizarProceso($conn) {
     $stmt->close();
 
     if (!$proceso) {
-        echo json_encode(['success' => false, 'message' => 'Proceso no encontrado ID: ' . $proceso_id]);
+        echo json_encode(['success' => false, 'message' => 'Proceso no encontrado']);
         return;
     }
 
     $vacante_id    = intval($proceso['vacante_id']);
     $num_ganadores = intval($proceso['numero_ganadores'] ?? 1);
 
-    // 2. Verificar puntajes
+    // Verificar que existan candidatos evaluados
     $stmt = $conn->prepare("
         SELECT COUNT(*) AS con_puntaje 
         FROM postulaciones 
@@ -291,21 +256,18 @@ function finalizarProceso($conn) {
     if ($check['con_puntaje'] == 0) {
         echo json_encode([
             'success' => false,
-            'message' => '⚠️ Debes evaluar al menos un candidato antes de finalizar'
+            'message' => 'Debes evaluar al menos un candidato antes de finalizar'
         ]);
         return;
     }
 
-    // 3. Resetear ganadores
+    // Resetear ganadores anteriores
     $stmt = $conn->prepare("UPDATE postulaciones SET es_ganador = 0 WHERE vacante_id = ?");
     $stmt->bind_param("i", $vacante_id);
-    if (!$stmt->execute()) {
-        echo json_encode(['success' => false, 'message' => 'Error paso 3: ' . $stmt->error]);
-        return;
-    }
+    $stmt->execute();
     $stmt->close();
 
-    // 4. Seleccionar ganadores por mayor puntaje
+    // Seleccionar ganadores por mayor puntaje
     $stmt = $conn->prepare("
         SELECT id FROM postulaciones 
         WHERE vacante_id = ? 
@@ -313,10 +275,7 @@ function finalizarProceso($conn) {
         LIMIT ?
     ");
     $stmt->bind_param("ii", $vacante_id, $num_ganadores);
-    if (!$stmt->execute()) {
-        echo json_encode(['success' => false, 'message' => 'Error paso 4: ' . $stmt->error]);
-        return;
-    }
+    $stmt->execute();
     $ganadores = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
@@ -325,48 +284,41 @@ function finalizarProceso($conn) {
         return;
     }
 
-    // 5. Marcar ganadores
+    // Marcar ganadores
     foreach ($ganadores as $g) {
         $stmt = $conn->prepare("
             UPDATE postulaciones 
-            SET es_ganador = 1, estado = 'aceptada', fecha_seleccion = NOW() 
+            SET es_ganador      = 1, 
+                estado          = 'aceptada', 
+                fecha_seleccion = NOW() 
             WHERE id = ?
         ");
         $stmt->bind_param("i", $g['id']);
-        if (!$stmt->execute()) {
-            echo json_encode(['success' => false, 'message' => 'Error paso 5: ' . $stmt->error]);
-            return;
-        }
+        $stmt->execute();
         $stmt->close();
     }
 
-    // 6. Rechazar el resto
+    // Rechazar el resto de candidatos
     $stmt = $conn->prepare("
         UPDATE postulaciones 
         SET estado = 'rechazada' 
         WHERE vacante_id = ? AND es_ganador = 0
     ");
     $stmt->bind_param("i", $vacante_id);
-    if (!$stmt->execute()) {
-        echo json_encode(['success' => false, 'message' => 'Error paso 6: ' . $stmt->error]);
-        return;
-    }
+    $stmt->execute();
     $stmt->close();
 
-    // 7. Cerrar proceso
+    // Cerrar el proceso
     $stmt = $conn->prepare("
         UPDATE proceso_seleccion 
         SET estado = 'finalizado', fecha_cierre = NOW() 
         WHERE id = ?
     ");
     $stmt->bind_param("i", $proceso_id);
-    if (!$stmt->execute()) {
-        echo json_encode(['success' => false, 'message' => 'Error paso 7: ' . $stmt->error]);
-        return;
-    }
+    $stmt->execute();
     $stmt->close();
 
-    // 8. Obtener info del ganador
+    // Obtener información del ganador para mostrar
     $stmt = $conn->prepare("
         SELECT u.nombre, u.apellido, p.puntaje
         FROM postulaciones p
@@ -375,15 +327,12 @@ function finalizarProceso($conn) {
         LIMIT 1
     ");
     $stmt->bind_param("i", $vacante_id);
-    if (!$stmt->execute()) {
-        echo json_encode(['success' => false, 'message' => 'Error paso 8: ' . $stmt->error]);
-        return;
-    }
+    $stmt->execute();
     $ganador_info = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
     if (!$ganador_info) {
-        echo json_encode(['success' => false, 'message' => 'Error: No se pudo obtener info del ganador']);
+        echo json_encode(['success' => false, 'message' => 'Error al obtener información del ganador']);
         return;
     }
 

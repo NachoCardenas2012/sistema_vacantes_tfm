@@ -3,7 +3,7 @@ $page_title = "Editar Vacante";
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// Validar rol admin
+
 if ($_SESSION['rol'] !== 'admin') {
     header("Location: ../home.php");
     exit;

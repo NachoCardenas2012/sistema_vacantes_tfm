@@ -13,7 +13,6 @@ if ($conn->connect_error) die("Error: " . $conn->connect_error);
 
 $vacante_id = intval($_GET['vacante_id'] ?? 0);
 
-// Vacante
 $stmt = $conn->prepare("SELECT * FROM vacantes WHERE id = ?");
 $stmt->bind_param("i", $vacante_id);
 $stmt->execute();
@@ -24,7 +23,6 @@ if (!$vacante) {
     exit;
 }
 
-// Postulaciones
 $stmt = $conn->prepare("
     SELECT p.*, u.nombre, u.email, u.apellido
     FROM postulaciones p
@@ -36,7 +34,6 @@ $stmt->bind_param("i", $vacante_id);
 $stmt->execute();
 $postulaciones = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Proceso existente
 $stmt = $conn->prepare("SELECT * FROM proceso_seleccion WHERE vacante_id = ?");
 $stmt->bind_param("i", $vacante_id);
 $stmt->execute();
@@ -51,10 +48,8 @@ $total_pendientes = count(array_filter($postulaciones, fn($p) => $p['estado'] ==
 <div class="content">
 <div class="container pb-5">
 
-    <!-- ALERTA -->
     <div id="alertaMsg" class="d-none mt-3"></div>
 
-    <!-- HEADER -->
     <div class="d-flex justify-content-between align-items-center my-4 flex-wrap gap-3">
         <div>
             <h2 class="mb-1 fw-bold">🏆 Proceso de Selección</h2>
@@ -77,7 +72,6 @@ $total_pendientes = count(array_filter($postulaciones, fn($p) => $p['estado'] ==
         </div>
     </div>
 
-    <!-- ESTADÍSTICAS -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
             <div class="stat-card stat-primary">
@@ -265,7 +259,6 @@ $total_pendientes = count(array_filter($postulaciones, fn($p) => $p['estado'] ==
         </div>
     </div>
 
-    <!-- BOTONES INFERIORES -->
     <div class="d-flex justify-content-end gap-3 mt-4 flex-wrap">
 
         <?php if ($proceso_existente && $proceso_existente['estado'] === 'abierto'): ?>
@@ -287,7 +280,6 @@ $total_pendientes = count(array_filter($postulaciones, fn($p) => $p['estado'] ==
 </div>
 </div>
 
-<!-- MODAL INICIAR -->
 <div class="modal fade" id="modalIniciar" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -326,7 +318,6 @@ $total_pendientes = count(array_filter($postulaciones, fn($p) => $p['estado'] ==
     </div>
 </div>
 
-<!-- MODAL EVALUAR -->
 <div class="modal fade" id="modalEvaluar" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -374,7 +365,6 @@ $total_pendientes = count(array_filter($postulaciones, fn($p) => $p['estado'] ==
     </div>
 </div>
 
-<!-- MODAL GANADOR -->
 <div class="modal fade" id="modalGanador" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -402,8 +392,6 @@ $total_pendientes = count(array_filter($postulaciones, fn($p) => $p['estado'] ==
     </div>
 </div>
 
-<!-- MODAL FINALIZAR -->
-<!-- MODAL FINALIZAR -->
 <div class="modal fade" id="modalFinalizar" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 450px;">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -464,7 +452,6 @@ document.addEventListener('DOMContentLoaded', function () {
     _mGanador   = new bootstrap.Modal(document.getElementById('modalGanador'));
     _mFinalizar = new bootstrap.Modal(document.getElementById('modalFinalizar'));
 
-    // INICIAR PROCESO
     document.getElementById('formIniciar').addEventListener('submit', function (e) {
         e.preventDefault();
         const btn     = document.getElementById('btnIniciar');
@@ -501,7 +488,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // BARRA PUNTAJE
     document.getElementById('campoPuntaje').addEventListener('input', function () {
         const val   = parseFloat(this.value) || 0;
         const barra = document.getElementById('barraPuntaje');
@@ -525,7 +511,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // GUARDAR EVALUACIÓN
     document.getElementById('formEvaluar').addEventListener('submit', function (e) {
         e.preventDefault();
         const btn     = document.getElementById('btnEvaluar');
@@ -562,7 +547,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // CONFIRMAR GANADOR
     document.getElementById('btnConfirmarGanador').addEventListener('click', function () {
         if (!_ganadorId) return;
         const btn     = this;
@@ -600,7 +584,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // CONFIRMAR FINALIZAR
     document.getElementById('btnConfirmarFinalizar').addEventListener('click', function () {
         if (!_procesoId) return;
         const btn     = this;
@@ -639,7 +622,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-}); // Fin DOMContentLoaded
+}); 
 
 function abrirEvaluar(id, nombre) {
     document.getElementById('evalId').value             = id;

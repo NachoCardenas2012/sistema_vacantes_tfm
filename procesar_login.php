@@ -5,46 +5,65 @@ $conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
+$conn->set_charset("utf8");
 
-$email = trim($_POST['email'] ?? '');
-$password = $_POST['password'] ?? '';
+$email    = trim($_POST['email']    ?? '');
+$password = trim($_POST['password'] ?? '');
 
+// ===== VALIDAR CAMPOS VACÍOS =====
 if ($email === '' || $password === '') {
-    $_SESSION['login_error'] = "Todos los campos son obligatorios.";
-    header("Location: login.php");
+    header("Location: login.php?error=Todos los campos son obligatorios");
     exit;
 }
 
-$stmt = $conn->prepare("SELECT id, password, rol FROM usuarios WHERE email = ?");
+// ===== VALIDAR FORMATO EMAIL =====
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    header("Location: login.php?error=El formato del email no es válido");
+    exit;
+}
+
+// ===== BUSCAR USUARIO =====
+$stmt = $conn->prepare("
+    SELECT id, nombre, apellido, email, password, rol 
+    FROM usuarios 
+    WHERE email = ?
+");
+
 if (!$stmt) {
-    die("Error SQL: " . $conn->error);
+    header("Location: login.php?error=Error interno del servidor");
+    exit;
 }
 
 $stmt->bind_param("s", $email);
 $stmt->execute();
-$result = $stmt->get_result();
-
-if ($usuario = $result->fetch_assoc()) {
-
-    if (password_verify($password, $usuario['password'])) {
-
-        // Login correcto
-        $_SESSION['id']  = $usuario['id'];
-        $_SESSION['rol'] = $usuario['rol'];
-
-        header("Location: home.php");
-        exit;
-
-    } else {
-        $_SESSION['login_error'] = "Correo o contraseña incorrectos.";
-    }
-
-} else {
-    $_SESSION['login_error'] = "Correo o contraseña incorrectos.";
-}
-
+$result  = $stmt->get_result();
+$usuario = $result->fetch_assoc();
 $stmt->close();
 $conn->close();
 
-header("Location: login.php");
-exit;
+// ===== VERIFICAR CONTRASEÑA =====
+if ($usuario && password_verify($password, $usuario['password'])) {
+
+    // ✅ Regenerar ID de sesión por seguridad
+    session_regenerate_id(true);
+
+    // ✅ Guardar todos los datos en sesión
+    $_SESSION['id']       = $usuario['id'];
+    $_SESSION['nombre']   = $usuario['nombre'];
+    $_SESSION['apellido'] = $usuario['apellido'];
+    $_SESSION['email']    = $usuario['email'];
+    $_SESSION['rol']      = $usuario['rol'];
+
+    // ✅ Redirigir según rol
+    if ($usuario['rol'] === 'admin') {
+        header("Location: home.php");
+    } else {
+        header("Location: home.php");
+    }
+    exit;
+
+} else {
+    header("Location: login.php?error=Correo o contraseña incorrectos");
+    exit;
+}
+?>

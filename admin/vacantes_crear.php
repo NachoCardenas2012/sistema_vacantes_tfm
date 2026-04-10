@@ -3,7 +3,7 @@ $page_title = "Crear Vacante";
 include '../includes/header.php';
 include '../includes/sidebar.php';
 
-// Validar rol admin
+
 if ($_SESSION['rol'] !== 'admin') {
     header("Location: ../home.php");
     exit;
@@ -11,7 +11,7 @@ if ($_SESSION['rol'] !== 'admin') {
 
 $conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
 
-// Procesar formulario
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $titulo = $_POST['titulo'];

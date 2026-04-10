@@ -14,7 +14,7 @@ if ($conn->connect_error) die("Conexión fallida: " . $conn->connect_error);
 $sql = "SELECT * FROM usuarios";
 $result = $conn->query($sql);
 
-// Capturar mensaje de éxito
+
 $mensaje_exito = "";
 if (isset($_GET['success'])) {
     if ($_GET['success'] == 'create') {

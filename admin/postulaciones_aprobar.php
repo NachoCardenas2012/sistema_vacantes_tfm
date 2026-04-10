@@ -15,14 +15,13 @@ if ($id <= 0) {
     exit;
 }
 
-// Conexión igual que tu archivo
+
 $conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
 
 if ($conn->connect_error) {
     die("Error de conexión: " . $conn->connect_error);
 }
 
-// Actualizar estado
 $stmt = $conn->prepare("UPDATE postulaciones SET estado = 'aprobado' WHERE id = ?");
 $stmt->bind_param("i", $id);
 

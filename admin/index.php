@@ -1,12 +1,8 @@
 <?php
 session_start();
 
-// ✅ Zona horaria correcta - Ecuador
 date_default_timezone_set('America/Guayaquil');
 
-// -----------------------------
-// Validación de acceso
-// -----------------------------
 if (!isset($_SESSION['id'])) {
     header("Location: ../login.php?error=Debe iniciar sesión primero");
     exit;
@@ -17,9 +13,8 @@ if ($_SESSION['rol'] !== 'admin') {
     exit;
 }
 
-// -----------------------------
+
 // Configuración y conexiones
-// -----------------------------
 $page_title = "Dashboard Administrativo";
 
 include '../includes/header.php';
@@ -31,20 +26,15 @@ if ($conn->connect_error) {
     die("Error en la conexión: " . $conn->connect_error);
 }
 
-// -----------------------------
-// Estadísticas Básicas
-// -----------------------------
+// Estadísticas Básicas Dashboard
 $usuarios_count              = $conn->query("SELECT COUNT(*) AS total FROM usuarios")->fetch_assoc()['total'];
 $vacantes_activas_count      = $conn->query("SELECT COUNT(*) AS total FROM vacantes WHERE estado = 'abierta'")->fetch_assoc()['total'];
 $vacantes_total_count        = $conn->query("SELECT COUNT(*) AS total FROM vacantes")->fetch_assoc()['total'];
 $postulaciones_count         = $conn->query("SELECT COUNT(*) AS total FROM postulaciones")->fetch_assoc()['total'];
 $departamentos_count         = $conn->query("SELECT COUNT(DISTINCT departamento) AS total FROM vacantes WHERE departamento IS NOT NULL AND departamento != ''")->fetch_assoc()['total'];
 
-// -----------------------------
-// Estadísticas Avanzadas
-// -----------------------------
+// Estadísticas Avanzadas Dashboard
 
-// 1. Usuarios por mes (últimos 6 meses)
 $usuarios_por_mes = [];
 $result_usuarios_mes = $conn->query("
     SELECT DATE_FORMAT(fecha_registro, '%Y-%m') as mes, COUNT(*) as total
@@ -57,21 +47,18 @@ while ($row = $result_usuarios_mes->fetch_assoc()) {
     $usuarios_por_mes[] = $row;
 }
 
-// 2. Vacantes por estado
 $vacantes_por_estado = ['abierta' => 0, 'cerrada' => 0, 'pausada' => 0];
 $result_vacantes_estado = $conn->query("SELECT estado, COUNT(*) AS total FROM vacantes WHERE estado IS NOT NULL GROUP BY estado");
 while ($row = $result_vacantes_estado->fetch_assoc()) {
     $vacantes_por_estado[$row['estado']] = $row['total'];
 }
 
-// 3. Postulaciones por estado
 $postulaciones_por_estado = ['pendiente' => 0, 'aprobado' => 0, 'rechazado' => 0];
 $result_postulaciones_estado = $conn->query("SELECT estado, COUNT(*) AS total FROM postulaciones GROUP BY estado");
 while ($row = $result_postulaciones_estado->fetch_assoc()) {
     $postulaciones_por_estado[$row['estado']] = $row['total'];
 }
 
-// 4. Top 5 vacantes con más postulaciones
 $top_vacantes = [];
 $result_top_vacantes = $conn->query("
     SELECT v.titulo, COUNT(p.id) as total_postulaciones
@@ -85,7 +72,7 @@ while ($row = $result_top_vacantes->fetch_assoc()) {
     $top_vacantes[] = $row;
 }
 
-// 5. Postulaciones por día (última semana)
+
 $postulaciones_semana = [];
 $result_postulaciones_semana = $conn->query("
     SELECT DATE(fecha_postulacion) as dia, COUNT(*) as total
@@ -98,14 +85,12 @@ while ($row = $result_postulaciones_semana->fetch_assoc()) {
     $postulaciones_semana[] = $row;
 }
 
-// 6. Usuarios por rol
 $usuarios_por_rol = ['admin' => 0, 'empleado' => 0];
 $result_usuarios_rol = $conn->query("SELECT rol, COUNT(*) AS total FROM usuarios WHERE rol IS NOT NULL GROUP BY rol");
 while ($row = $result_usuarios_rol->fetch_assoc()) {
     $usuarios_por_rol[$row['rol']] = $row['total'];
 }
 
-// 7. Vacantes por departamento (top 5)
 $vacantes_por_departamento = [];
 $result_vacantes_departamento = $conn->query("
     SELECT departamento, COUNT(*) as total
@@ -119,7 +104,6 @@ while ($row = $result_vacantes_departamento->fetch_assoc()) {
     $vacantes_por_departamento[] = $row;
 }
 
-// 8. Métricas de rendimiento
 $promedio_postulaciones_por_vacante = $conn->query("
     SELECT ROUND(AVG(postulaciones_count), 1) as promedio
     FROM (
@@ -553,7 +537,6 @@ new Chart(document.getElementById('departamentosChart'), {
     }
 });
 
-// 7. Postulaciones Semana
 new Chart(document.getElementById('postulacionesSemanaChart'), {
     type: 'line',
     data: {

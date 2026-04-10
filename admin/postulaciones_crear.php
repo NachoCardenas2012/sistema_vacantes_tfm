@@ -11,20 +11,20 @@ if ($_SESSION['rol'] !== 'admin') {
 
 $conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
 
-// Obtener usuarios
+
 $usuarios = $conn->query("SELECT id, nombre, apellido FROM usuarios ORDER BY nombre ASC");
 
-// Obtener vacantes
+
 $vacantes = $conn->query("SELECT id, titulo FROM vacantes WHERE estado = 'abierta' ORDER BY titulo ASC");
 
-// Procesar formulario
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $usuario_id = $_POST['usuario_id'];
     $vacante_id = $_POST['vacante_id'];
     $estado = $_POST['estado'];
 
-    // Insertar postulación
+
     $stmt = $conn->prepare("
         INSERT INTO postulaciones (usuario_id, vacante_id, fecha_postulacion, estado)
         VALUES (?, ?, NOW(), ?)

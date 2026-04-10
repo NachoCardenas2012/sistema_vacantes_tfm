@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('America/Guayaquil');
 
 if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'admin') {
     header("Location: ../login.php");

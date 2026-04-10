@@ -192,9 +192,8 @@ $result = $conn->query($sql);
     </div>
 </div>
 
-<!-- ===== JAVASCRIPT ===== -->
+
 <script>
-// Abrir modal APROBAR
 function confirmarAprobar(id, usuario, vacante) {
     document.getElementById('aprobar-usuario').textContent = usuario;
     document.getElementById('aprobar-vacante').textContent  = vacante;
@@ -203,7 +202,6 @@ function confirmarAprobar(id, usuario, vacante) {
     new bootstrap.Modal(document.getElementById('modalAprobar')).show();
 }
 
-// Abrir modal RECHAZAR
 function confirmarRechazar(id, usuario, vacante) {
     document.getElementById('rechazar-usuario').textContent = usuario;
     document.getElementById('rechazar-vacante').textContent  = vacante;

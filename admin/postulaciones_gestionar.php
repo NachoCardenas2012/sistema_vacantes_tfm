@@ -9,7 +9,6 @@ if ($_SESSION['rol'] !== 'admin') {
     exit;
 }
 
-// Conexión a la base de datos
 $conn = new mysqli("localhost", "root", "root", "sistema_vacantes");
 
 $sql = "
